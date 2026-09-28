@@ -96,6 +96,7 @@ case "$ARCH" in
 esac
 
 source "$INSTALL_DIR/phases/system.sh"
+source "$INSTALL_DIR/sources/docker.sh"
 source "$INSTALL_DIR/phases/user.sh"
 
 PROFILE_FILE="$PROFILE_DIR/$PROFILE.conf"
@@ -208,6 +209,11 @@ fi
 
 if ((EUID != 0)); then
     exec sudo "$0" "$@"
+fi
+
+if printf '%s\n' "$MANIFESTS" | grep -qw containers; then
+    printf '\nConfiguring external package sources...\n'
+    configure_docker_repository
 fi
 
 printf '\nInstalling system packages...\n'
