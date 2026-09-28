@@ -1,0 +1,7 @@
+# Hardware and system diagnostics
+lsof
+pciutils
+usbutils
+dmidecode
+inotify-tools
+procps

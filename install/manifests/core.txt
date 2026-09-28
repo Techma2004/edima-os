@@ -1,0 +1,11 @@
+# Edima OS core command-line tools
+git
+curl
+wget
+jq
+file
+tree
+unzip
+zip
+p7zip-full
+ca-certificates

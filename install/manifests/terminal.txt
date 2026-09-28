@@ -1,0 +1,11 @@
+# Terminal and shell productivity
+micro
+tmux
+fzf
+zoxide
+bat
+btop
+htop
+ncdu
+fastfetch
+atuin

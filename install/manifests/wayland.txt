@@ -1,0 +1,13 @@
+# Edima Wayland desktop foundation
+hyprland
+waybar
+wofi
+mako-notifier
+grim
+slurp
+wl-clipboard
+cliphist
+hyprpaper
+xdg-desktop-portal-hyprland
+brightnessctl
+playerctl

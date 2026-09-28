@@ -1,0 +1,12 @@
+# Networking and network diagnostics
+gping
+nmap
+netcat-traditional
+traceroute
+mtr
+bind9-dnsutils
+hping3
+socat
+iproute2
+iputils-ping
+iw
