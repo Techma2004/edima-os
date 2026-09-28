@@ -1,0 +1,1 @@
+"""Edima Shell package."""
