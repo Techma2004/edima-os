@@ -1,0 +1,17 @@
+[project]
+name = "edima-os"
+version = "0.1.0"
+description = "A lightweight, developer-first Linux desktop environment."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+edima = "core.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["core"]
