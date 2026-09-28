@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import StrEnum
 
+from .systemd import SystemdUser
+
 
 class ServiceClass(StrEnum):
     CRITICAL = "critical"
@@ -95,6 +97,36 @@ class ServiceManager:
                 key=lambda service: (order[service.service_class], service.name),
             )
         )
+
+    def sync_runtime(self, name: str) -> ServiceRuntime:
+        service = self.get(name)
+
+        if service.unit is None:
+            return self.runtime(name)
+
+        systemd = SystemdUser.status(service.unit)
+
+        state_map = {
+            "active": RuntimeState.ACTIVE,
+            "failed": RuntimeState.FAILED,
+            "inactive": RuntimeState.INACTIVE,
+            "activating": RuntimeState.STARTING,
+            "deactivating": RuntimeState.STOPPING,
+        }
+
+        runtime = self.runtime(name)
+        runtime.state = state_map.get(systemd.state, RuntimeState.UNKNOWN)
+        runtime.healthy = (
+            True if runtime.state == RuntimeState.ACTIVE
+            else False if runtime.state == RuntimeState.FAILED
+            else None
+        )
+
+        return runtime
+
+    def sync_all(self) -> None:
+        for service in self._services.values():
+            self.sync_runtime(service.name)
 
 
 def create_default_manager() -> ServiceManager:

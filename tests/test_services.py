@@ -92,3 +92,42 @@ def test_service_order() -> None:
 
     assert names[:1] == ("hyprland",)
     assert names.index("network") < names.index("sally")
+
+
+def test_sync_runtime_maps_active_systemd_state() -> None:
+    manager = create_default_manager()
+
+    class FakeSystemd:
+        state = "active"
+
+    from unittest.mock import patch
+
+    with patch("core.services.SystemdUser.status", return_value=FakeSystemd()):
+        runtime = manager.sync_runtime("hyprland")
+
+    assert runtime.state == RuntimeState.ACTIVE
+    assert runtime.healthy is True
+
+
+def test_sync_runtime_maps_failed_systemd_state() -> None:
+    manager = create_default_manager()
+
+    class FakeSystemd:
+        state = "failed"
+
+    from unittest.mock import patch
+
+    with patch("core.services.SystemdUser.status", return_value=FakeSystemd()):
+        runtime = manager.sync_runtime("hyprland")
+
+    assert runtime.state == RuntimeState.FAILED
+    assert runtime.healthy is False
+
+
+def test_sync_runtime_keeps_unitless_service_unknown() -> None:
+    manager = create_default_manager()
+
+    runtime = manager.sync_runtime("audio")
+
+    assert runtime.state == RuntimeState.UNKNOWN
+    assert runtime.healthy is None

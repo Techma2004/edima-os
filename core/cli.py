@@ -31,6 +31,8 @@ def show_services() -> None:
     print("Edima Services")
     print()
 
+    manager.sync_all()
+
     for service in manager.list():
         runtime = manager.runtime(service.name)
 
