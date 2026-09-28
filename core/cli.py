@@ -25,13 +25,11 @@ def show_info() -> None:
     print(f"Profile:     {profile.name}")
 
 
-def show_services() -> None:
-    manager = create_default_manager()
+def _print_services(manager) -> None:
+    manager.sync_all()
 
     print("Edima Services")
     print()
-
-    manager.sync_all()
 
     for service in manager.list():
         runtime = manager.runtime(service.name)
@@ -46,19 +44,79 @@ def show_services() -> None:
         )
 
 
-def main() -> None:
+def show_services() -> None:
+    _print_services(create_default_manager())
+
+
+def show_service_status(name: str) -> None:
+    manager = create_default_manager()
+    runtime = manager.sync_runtime(name)
+    service = manager.get(name)
+
+    print(f"{service.name}: {runtime.state.value}")
+    print(f"Class:   {service.service_class.value}")
+    print(f"Policy:  {service.startup_policy.value}")
+
+    if service.unit:
+        print(f"Unit:    {service.unit}")
+
+
+def control_service(name: str, action: str) -> None:
+    manager = create_default_manager()
+    runtime = getattr(manager, action)(name)
+
+    print(f"{name}: {runtime.state.value}")
+
+
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="edima")
     subparsers = parser.add_subparsers(dest="command")
 
     subparsers.add_parser("info")
-    subparsers.add_parser("services")
 
+    services = subparsers.add_parser("services")
+    services.set_defaults(handler=lambda args: show_services())
+
+    service = subparsers.add_parser("service")
+    service_subparsers = service.add_subparsers(dest="service_command")
+
+    service_list = service_subparsers.add_parser("list")
+    service_list.set_defaults(handler=lambda args: show_services())
+
+    service_status = service_subparsers.add_parser("status")
+    service_status.add_argument("name")
+    service_status.set_defaults(
+        handler=lambda args: show_service_status(args.name)
+    )
+
+    for action in ("start", "stop", "restart"):
+        command = service_subparsers.add_parser(action)
+        command.add_argument("name")
+        command.set_defaults(
+            handler=lambda args, action=action: control_service(
+                args.name, action
+            )
+        )
+
+    return parser
+
+
+def main() -> None:
+    parser = build_parser()
     args = parser.parse_args()
 
-    if args.command == "services":
-        show_services()
-    else:
+    if hasattr(args, "handler"):
+        try:
+            args.handler(args)
+        except (KeyError, ValueError) as exc:
+            parser.error(str(exc))
+        return
+
+    if args.command == "info":
         show_info()
+        return
+
+    parser.print_help()
 
 
 if __name__ == "__main__":

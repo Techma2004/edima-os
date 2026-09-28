@@ -151,12 +151,22 @@ class ServiceManager:
         return self.runtime(name)
 
     def start(self, name: str) -> ServiceRuntime:
+        return self._start(name, set())
+
+    def _start(self, name: str, visiting: set[str]) -> ServiceRuntime:
+        if name in visiting:
+            raise ValueError(f"Service dependency cycle detected: {name}")
+
+        visiting.add(name)
+
         for dependency in self.dependencies(name):
+            self.sync_runtime(dependency.name)
             dependency_runtime = self.runtime(dependency.name)
 
             if dependency_runtime.state != RuntimeState.ACTIVE:
-                self.start(dependency.name)
+                self._start(dependency.name, visiting)
 
+        visiting.remove(name)
         return self._control(name, "start")
 
     def stop(self, name: str) -> ServiceRuntime:

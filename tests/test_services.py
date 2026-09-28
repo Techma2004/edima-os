@@ -150,25 +150,62 @@ def test_start_respects_dependencies() -> None:
     from unittest.mock import patch
 
     calls: list[str] = []
+    states = {
+        "NetworkManager.service": "inactive",
+        "kdeconnect.service": "inactive",
+    }
 
     def fake_start(unit: str) -> bool:
         calls.append(unit)
+        states[unit] = "active"
         return True
 
     def fake_status(unit: str):
         class FakeRuntime:
-            state = "active"
-            sub_state = "running"
-            active = True
-            failed = False
+            state = states.get(unit, "unknown")
+            sub_state = "running" if state == "active" else "dead"
+            active = state == "active"
+            failed = state == "failed"
 
         return FakeRuntime()
 
     with patch("core.services.SystemdUser.start", side_effect=fake_start):
-        with patch("core.services.SystemdUser.status", side_effect=fake_status):
+        with patch(
+            "core.services.SystemdUser.status",
+            side_effect=fake_status,
+        ):
             manager.start("kdeconnect")
 
     assert calls == [
         "NetworkManager.service",
         "kdeconnect.service",
     ]
+
+def test_start_detects_dependency_cycle() -> None:
+    manager = ServiceManager()
+
+    manager.register(
+        Service(
+            name="a",
+            description="A",
+            service_class=ServiceClass.OPTIONAL,
+            unit="a.service",
+            dependencies=("b",),
+        )
+    )
+    manager.register(
+        Service(
+            name="b",
+            description="B",
+            service_class=ServiceClass.OPTIONAL,
+            unit="b.service",
+            dependencies=("a",),
+        )
+    )
+
+    try:
+        manager.start("a")
+    except ValueError as exc:
+        assert "dependency cycle detected" in str(exc)
+    else:
+        raise AssertionError("Expected dependency cycle to fail")
