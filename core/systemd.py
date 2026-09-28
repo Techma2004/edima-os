@@ -13,7 +13,23 @@ class SystemdRuntime:
 
 
 class SystemdUser:
-    """Read-only interface to the user's systemd instance."""
+    """Interface to the user's systemd instance."""
+
+    @staticmethod
+    def _run(action: str, unit: str) -> bool:
+        result = subprocess.run(
+            [
+                "systemctl",
+                "--user",
+                action,
+                unit,
+                "--no-pager",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        return result.returncode == 0
 
     @staticmethod
     def status(unit: str) -> SystemdRuntime:
@@ -57,3 +73,15 @@ class SystemdUser:
             active=state == "active",
             failed=state == "failed",
         )
+
+    @classmethod
+    def start(cls, unit: str) -> bool:
+        return cls._run("start", unit)
+
+    @classmethod
+    def stop(cls, unit: str) -> bool:
+        return cls._run("stop", unit)
+
+    @classmethod
+    def restart(cls, unit: str) -> bool:
+        return cls._run("restart", unit)

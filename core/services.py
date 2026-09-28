@@ -128,6 +128,43 @@ class ServiceManager:
         for service in self._services.values():
             self.sync_runtime(service.name)
 
+    def _control(self, name: str, action: str) -> ServiceRuntime:
+        service = self.get(name)
+
+        if service.unit is None:
+            raise ValueError(f"Service has no systemd unit: {name}")
+
+        if action == "start":
+            success = SystemdUser.start(service.unit)
+        elif action == "stop":
+            success = SystemdUser.stop(service.unit)
+        elif action == "restart":
+            success = SystemdUser.restart(service.unit)
+        else:
+            raise ValueError(f"Unsupported service action: {action}")
+
+        self.sync_runtime(name)
+
+        if not success and self.runtime(name).state != RuntimeState.ACTIVE:
+            self.runtime(name).healthy = False
+
+        return self.runtime(name)
+
+    def start(self, name: str) -> ServiceRuntime:
+        for dependency in self.dependencies(name):
+            dependency_runtime = self.runtime(dependency.name)
+
+            if dependency_runtime.state != RuntimeState.ACTIVE:
+                self.start(dependency.name)
+
+        return self._control(name, "start")
+
+    def stop(self, name: str) -> ServiceRuntime:
+        return self._control(name, "stop")
+
+    def restart(self, name: str) -> ServiceRuntime:
+        return self._control(name, "restart")
+
 
 def create_default_manager() -> ServiceManager:
     manager = ServiceManager()

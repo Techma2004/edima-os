@@ -131,3 +131,44 @@ def test_sync_runtime_keeps_unitless_service_unknown() -> None:
 
     assert runtime.state == RuntimeState.UNKNOWN
     assert runtime.healthy is None
+
+
+def test_start_requires_systemd_unit() -> None:
+    manager = create_default_manager()
+
+    try:
+        manager.start("audio")
+    except ValueError as exc:
+        assert "no systemd unit" in str(exc)
+    else:
+        raise AssertionError("Expected unitless service start to fail")
+
+
+def test_start_respects_dependencies() -> None:
+    manager = create_default_manager()
+
+    from unittest.mock import patch
+
+    calls: list[str] = []
+
+    def fake_start(unit: str) -> bool:
+        calls.append(unit)
+        return True
+
+    def fake_status(unit: str):
+        class FakeRuntime:
+            state = "active"
+            sub_state = "running"
+            active = True
+            failed = False
+
+        return FakeRuntime()
+
+    with patch("core.services.SystemdUser.start", side_effect=fake_start):
+        with patch("core.services.SystemdUser.status", side_effect=fake_status):
+            manager.start("kdeconnect")
+
+    assert calls == [
+        "NetworkManager.service",
+        "kdeconnect.service",
+    ]
