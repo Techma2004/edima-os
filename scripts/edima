@@ -1,0 +1,25 @@
+#!/usr/bin/env python3
+
+from core.hardware import detect_hardware
+from core.profile import select_profile
+from core.system import get_system_info
+
+
+def main() -> None:
+    system = get_system_info()
+    hardware = detect_hardware()
+    profile = select_profile(hardware)
+
+    print(f"Edima OS {__import__('core.config', fromlist=['CONFIG']).CONFIG.version}")
+    print()
+    print(f"Host:       {system.hostname}")
+    print(f"Kernel:     {system.kernel}")
+    print(f"Arch:       {system.architecture}")
+    print(f"CPU threads:{hardware.cpu_threads}")
+    print(f"Memory:     {hardware.memory_gib:.2f} GiB")
+    print(f"GPU vendor: {hardware.gpu}")
+    print(f"Profile:    {profile.name}")
+
+
+if __name__ == "__main__":
+    main()
