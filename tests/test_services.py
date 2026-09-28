@@ -1,0 +1,94 @@
+from core.services import (
+    DesiredState,
+    RuntimeState,
+    Service,
+    ServiceClass,
+    ServiceManager,
+    StartupPolicy,
+    create_default_manager,
+)
+
+
+def test_register_and_lookup() -> None:
+    manager = ServiceManager()
+
+    service = Service(
+        name="test",
+        description="Test service",
+        service_class=ServiceClass.OPTIONAL,
+    )
+
+    manager.register(service)
+
+    assert manager.get("test") == service
+    assert manager.runtime("test").state == RuntimeState.UNKNOWN
+
+
+def test_duplicate_registration_fails() -> None:
+    manager = ServiceManager()
+
+    service = Service(
+        name="test",
+        description="Test service",
+        service_class=ServiceClass.OPTIONAL,
+    )
+
+    manager.register(service)
+
+    try:
+        manager.register(service)
+    except ValueError as exc:
+        assert "already registered" in str(exc)
+    else:
+        raise AssertionError("Expected duplicate registration to fail")
+
+
+def test_dependencies_are_resolved() -> None:
+    manager = create_default_manager()
+
+    dependencies = manager.dependencies("sally")
+
+    assert tuple(service.name for service in dependencies) == ("network",)
+
+
+def test_missing_dependency_fails_on_resolution() -> None:
+    manager = ServiceManager()
+
+    manager.register(
+        Service(
+            name="broken",
+            description="Broken service",
+            service_class=ServiceClass.OPTIONAL,
+            dependencies=("missing",),
+        )
+    )
+
+    try:
+        manager.dependencies("broken")
+    except KeyError as exc:
+        assert "Unknown service: missing" in str(exc)
+    else:
+        raise AssertionError("Expected missing dependency to fail")
+
+
+def test_default_startup_policies() -> None:
+    manager = create_default_manager()
+
+    assert manager.get("hyprland").startup_policy == StartupPolicy.IMMEDIATE
+    assert manager.get("bluetooth").startup_policy == StartupPolicy.ON_DEMAND
+    assert manager.get("sally").startup_policy == StartupPolicy.LAZY
+
+
+def test_default_desired_state_is_auto() -> None:
+    manager = create_default_manager()
+
+    assert manager.get("sally").desired_state == DesiredState.AUTO
+
+
+def test_service_order() -> None:
+    manager = create_default_manager()
+
+    names = tuple(service.name for service in manager.list())
+
+    assert names[:1] == ("hyprland",)
+    assert names.index("network") < names.index("sally")

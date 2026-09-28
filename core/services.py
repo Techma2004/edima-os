@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 
 
@@ -10,8 +10,25 @@ class ServiceClass(StrEnum):
     OPTIONAL = "optional"
 
 
-class ServiceState(StrEnum):
-    ENABLED = "enabled"
+class DesiredState(StrEnum):
+    AUTO = "auto"
+    STARTED = "started"
+    STOPPED = "stopped"
+
+
+class RuntimeState(StrEnum):
+    INACTIVE = "inactive"
+    STARTING = "starting"
+    ACTIVE = "active"
+    STOPPING = "stopping"
+    FAILED = "failed"
+    UNKNOWN = "unknown"
+
+
+class StartupPolicy(StrEnum):
+    IMMEDIATE = "immediate"
+    LAZY = "lazy"
+    ON_DEMAND = "on-demand"
     DISABLED = "disabled"
 
 
@@ -21,24 +38,49 @@ class Service:
     description: str
     service_class: ServiceClass
     unit: str | None = None
-    enabled: bool = True
+    desired_state: DesiredState = DesiredState.AUTO
+    startup_policy: StartupPolicy = StartupPolicy.IMMEDIATE
+    dependencies: tuple[str, ...] = field(default_factory=tuple)
+
+
+@dataclass
+class ServiceRuntime:
+    state: RuntimeState = RuntimeState.UNKNOWN
+    healthy: bool | None = None
 
 
 class ServiceManager:
     def __init__(self) -> None:
         self._services: dict[str, Service] = {}
+        self._runtime: dict[str, ServiceRuntime] = {}
 
     def register(self, service: Service) -> None:
         if service.name in self._services:
             raise ValueError(f"Service already registered: {service.name}")
 
         self._services[service.name] = service
+        self._runtime[service.name] = ServiceRuntime()
 
     def get(self, name: str) -> Service:
         try:
             return self._services[name]
         except KeyError:
             raise KeyError(f"Unknown service: {name}") from None
+
+    def runtime(self, name: str) -> ServiceRuntime:
+        try:
+            return self._runtime[name]
+        except KeyError:
+            raise KeyError(f"Unknown service: {name}") from None
+
+    def dependencies(self, name: str) -> tuple[Service, ...]:
+        service = self.get(name)
+
+        dependencies: list[Service] = []
+        for dependency in service.dependencies:
+            dependencies.append(self.get(dependency))
+
+        return tuple(dependencies)
 
     def list(self) -> tuple[Service, ...]:
         order = {
@@ -64,6 +106,7 @@ def create_default_manager() -> ServiceManager:
             description="Wayland compositor",
             service_class=ServiceClass.CRITICAL,
             unit="hyprland.service",
+            startup_policy=StartupPolicy.IMMEDIATE,
         )
     )
 
@@ -73,6 +116,7 @@ def create_default_manager() -> ServiceManager:
             description="Network management",
             service_class=ServiceClass.SYSTEM,
             unit="NetworkManager.service",
+            startup_policy=StartupPolicy.IMMEDIATE,
         )
     )
 
@@ -81,6 +125,7 @@ def create_default_manager() -> ServiceManager:
             name="audio",
             description="Audio system",
             service_class=ServiceClass.SYSTEM,
+            startup_policy=StartupPolicy.IMMEDIATE,
         )
     )
 
@@ -90,6 +135,7 @@ def create_default_manager() -> ServiceManager:
             description="Bluetooth management",
             service_class=ServiceClass.SYSTEM,
             unit="bluetooth.service",
+            startup_policy=StartupPolicy.ON_DEMAND,
         )
     )
 
@@ -99,6 +145,8 @@ def create_default_manager() -> ServiceManager:
             description="Device integration",
             service_class=ServiceClass.OPTIONAL,
             unit="kdeconnect.service",
+            startup_policy=StartupPolicy.LAZY,
+            dependencies=("network",),
         )
     )
 
@@ -107,6 +155,8 @@ def create_default_manager() -> ServiceManager:
             name="sally",
             description="Local AI assistant",
             service_class=ServiceClass.OPTIONAL,
+            startup_policy=StartupPolicy.LAZY,
+            dependencies=("network",),
         )
     )
 

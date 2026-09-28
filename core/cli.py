@@ -32,11 +32,14 @@ def show_services() -> None:
     print()
 
     for service in manager.list():
-        state = "enabled" if service.enabled else "disabled"
+        runtime = manager.runtime(service.name)
+
         print(
             f"{service.name:<12} "
             f"{service.service_class.value:<9} "
-            f"{state:<8} "
+            f"{service.desired_state.value:<8} "
+            f"{service.startup_policy.value:<10} "
+            f"{runtime.state.value:<9} "
             f"{service.description}"
         )
 
