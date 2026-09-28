@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 
 from .apps import discover_applications, find_application, launch
+from .wofi import run_launcher
 
 
 def list_applications() -> None:
@@ -31,6 +32,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     list_command = subparsers.add_parser("list")
     list_command.set_defaults(handler=lambda args: list_applications())
+
+    run_command = subparsers.add_parser("run")
+    run_command.set_defaults(handler=lambda args: run_launcher())
 
     launch_command = subparsers.add_parser("launch")
     launch_command.add_argument("name")

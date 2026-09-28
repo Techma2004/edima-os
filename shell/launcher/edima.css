@@ -1,0 +1,97 @@
+* {
+    font-family: "Inter", "Noto Sans", sans-serif;
+    font-size: 15px;
+}
+
+window {
+    margin: 0;
+    padding: 0;
+    border: 1px solid #343944;
+    border-radius: 18px;
+    background-color: #101217;
+    color: #f4f6f8;
+}
+
+#outer-box {
+    margin: 0;
+    padding: 12px;
+    background-color: #101217;
+}
+
+#inner-box {
+    margin: 0;
+    padding: 0;
+    background-color: #101217;
+}
+
+#scroll {
+    margin: 0;
+    padding: 0;
+    background-color: #101217;
+}
+
+#input {
+    margin: 0 0 12px 0;
+    padding: 13px 16px;
+    border: 1px solid #30343d;
+    border-radius: 12px;
+    background-color: #191c22;
+    color: #f4f6f8;
+    caret-color: #f4f6f8;
+}
+
+#input:focus {
+    border: 1px solid #596170;
+    box-shadow: none;
+}
+
+#entry {
+    margin: 3px 0;
+    padding: 10px 12px;
+    border-radius: 11px;
+    background-color: transparent;
+    color: #d9dde5;
+}
+
+#entry:hover {
+    background-color: #1b1f27;
+    color: #ffffff;
+}
+
+#entry:selected {
+    background-color: #252a34;
+    color: #ffffff;
+}
+
+#entry image {
+    margin-right: 14px;
+}
+
+#entry label {
+    color: inherit;
+}
+
+#text {
+    margin: 0;
+    padding: 0;
+    color: inherit;
+}
+
+#unselected {
+    background-color: transparent;
+}
+
+#selected {
+    background-color: #252a34;
+}
+
+#img {
+    margin-right: 14px;
+}
+
+tooltip {
+    background-color: #191c22;
+    color: #f4f6f8;
+    border: 1px solid #343944;
+    border-radius: 10px;
+}

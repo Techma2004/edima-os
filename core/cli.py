@@ -7,7 +7,7 @@ from .hardware import detect_hardware
 from .profile import select_profile
 from .services import create_default_manager
 from .system import get_system_info
-from shell.launcher.cli import launch_application, list_applications
+from shell.launcher.cli import launch_application, list_applications, run_launcher
 
 
 def show_info() -> None:
@@ -77,6 +77,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     launcher = subparsers.add_parser("launcher")
     launcher_subparsers = launcher.add_subparsers(dest="launcher_command")
+
+    launcher_run = launcher_subparsers.add_parser("run")
+    launcher_run.set_defaults(handler=lambda args: run_launcher())
 
     launcher_list = launcher_subparsers.add_parser("list")
     launcher_list.set_defaults(handler=lambda args: list_applications())
