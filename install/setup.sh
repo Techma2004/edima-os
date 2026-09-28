@@ -8,6 +8,24 @@ PROFILE_DIR="$INSTALL_DIR/profiles"
 
 PROFILE="standard"
 DRY_RUN=0
+EDIMA_USER="${SUDO_USER:-${USER:-}}"
+
+if [[ -z "$EDIMA_USER" || "$EDIMA_USER" == "root" ]]; then
+    EDIMA_USER="$(logname 2>/dev/null || true)"
+fi
+
+[[ -n "$EDIMA_USER" && "$EDIMA_USER" != "root" ]] || {
+    printf 'Error: Could not determine the desktop user.\n' >&2
+    exit 1
+}
+
+EDIMA_HOME="$(getent passwd "$EDIMA_USER" | cut -d: -f6)"
+
+[[ -n "$EDIMA_HOME" && -d "$EDIMA_HOME" ]] || {
+    printf 'Error: Could not determine home directory for %s.\n' "$EDIMA_USER" >&2
+    exit 1
+}
+
 
 usage() {
     cat <<EOF
@@ -23,7 +41,7 @@ Profiles:
   everything
 
 Options:
-  --dry-run    Show what would be installed without changing the system
+  --dry-run    Preview installation without changing the system
   --help       Show this help
 
 Examples:
@@ -68,6 +86,7 @@ source /etc/os-release
     error "Edima OS currently targets Debian. Detected: ${ID:-unknown}"
 
 ARCH="$(dpkg --print-architecture)"
+
 case "$ARCH" in
     amd64|arm64)
         ;;
@@ -76,20 +95,25 @@ case "$ARCH" in
         ;;
 esac
 
+source "$INSTALL_DIR/phases/system.sh"
+source "$INSTALL_DIR/phases/user.sh"
+
 PROFILE_FILE="$PROFILE_DIR/$PROFILE.conf"
 [[ -f "$PROFILE_FILE" ]] || error "Profile not found: $PROFILE"
 
 # shellcheck disable=SC1090
 source "$PROFILE_FILE"
 
-[[ -n "${MANIFESTS:-}" ]] || error "Profile contains no manifests: $PROFILE"
+[[ -n "${MANIFESTS:-}" ]] || \
+    error "Profile contains no manifests: $PROFILE"
 
 packages=()
 
 for manifest in $MANIFESTS; do
     file="$MANIFEST_DIR/$manifest.txt"
 
-    [[ -f "$file" ]] || error "Manifest not found: $manifest"
+    [[ -f "$file" ]] || \
+        error "Manifest not found: $manifest"
 
     while IFS= read -r package || [[ -n "$package" ]]; do
         [[ -z "$package" ]] && continue
@@ -98,9 +122,12 @@ for manifest in $MANIFESTS; do
     done < "$file"
 done
 
-((${#packages[@]})) || error "No packages found for profile: $PROFILE"
+((${#packages[@]})) || \
+    error "No packages found for profile: $PROFILE"
 
-mapfile -t packages < <(printf '%s\n' "${packages[@]}" | sort -u)
+mapfile -t packages < <(
+    printf '%s\n' "${packages[@]}" | sort -u
+)
 
 printf 'Edima OS installer\n'
 printf '%s\n' '=================='
@@ -114,19 +141,81 @@ printf '%s\n' 'Packages:'
 printf '  %s\n' "${packages[@]}"
 
 if ((DRY_RUN)); then
+    printf '\n%s\n' 'Calculating installation impact...'
+
+    simulation="$(mktemp)"
+    trap 'rm -f "$simulation"' EXIT
+
+    if ! apt-get -s \
+        --no-install-recommends \
+        install "${packages[@]}" >"$simulation" 2>&1; then
+        cat "$simulation" >&2
+        error "APT could not resolve this installation."
+    fi
+
+    summary="$(
+        grep -E '^[0-9]+ upgraded, [0-9]+ newly installed,' "$simulation" |
+        head -n 1
+    )"
+
+    upgraded_packages="$(
+        printf '%s\n' "$summary" |
+        sed -nE 's/^([0-9]+) upgraded,.*/\1/p'
+    )"
+
+    new_packages="$(
+        printf '%s\n' "$summary" |
+        sed -nE 's/^[0-9]+ upgraded, ([0-9]+) newly installed,.*/\1/p'
+    )"
+
+    download_size="$(
+        sed -nE 's/^Need to get ([^ ]+).*/\1/p' "$simulation" |
+        head -n 1
+    )"
+
+    disk_size="$(
+        sed -nE 's/^After this operation, ([^ ]+).*/\1/p' "$simulation" |
+        head -n 1
+    )"
+
+    [[ -n "$download_size" ]] || download_size="0 B"
+    [[ -n "$disk_size" ]] || disk_size="0 B"
+    [[ -n "$upgraded_packages" ]] || upgraded_packages="0"
+    [[ -n "$new_packages" ]] || new_packages="0"
+
+    free_space="$(
+        df -h --output=avail "$ROOT_DIR" |
+        tail -n 1 |
+        xargs
+    )"
+
+    printf '\n%s\n' 'Installation preview'
+    printf '%s\n' '---------------------'
+    printf 'Requested packages: %d\n' "${#packages[@]}"
+    printf 'New packages:       %s\n' "$new_packages"
+    printf 'Upgraded packages:  %s\n' "$upgraded_packages"
+    printf 'Download:           %s\n' "$download_size"
+    printf 'Additional disk:    %s\n' "$disk_size"
+    printf 'Free disk:          %s\n' "$free_space"
+
+    printf '\n%s\n' 'APT simulation:'
+    grep -E '^(The following|[0-9]+ upgraded|Need to get|After this operation)' \
+        "$simulation" || true
+
     printf '\nDry run: no changes made.\n'
     exit 0
 fi
 
 if ((EUID != 0)); then
-    error "Run the installer with sudo."
+    exec sudo "$0" "$@"
 fi
 
-printf '\nUpdating package metadata...\n'
-apt-get update
+printf '\nInstalling system packages...\n'
+install_system_packages packages
 
-printf '\nInstalling Edima packages...\n'
-DEBIAN_FRONTEND=noninteractive \
-    apt-get install -y --no-install-recommends "${packages[@]}"
+printf '\nConfiguring user tools for %s...\n' "$EDIMA_USER"
+install_user_tools "$EDIMA_HOME"
 
-printf '\nEdima OS package installation complete.\n'
+printf '\nEdima OS installation complete.\n'
+printf 'System packages: installed\n'
+printf 'User tools:       configured for %s\n' "$EDIMA_USER"
